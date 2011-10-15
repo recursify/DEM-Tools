@@ -23,13 +23,13 @@ sref.ImportFromProj4('+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
 
 def region(lat, lon):
     """ Return the SRTM3 region name of a given lat, lon.
-    
+
         Map of regions:
         http://dds.cr.usgs.gov/srtm/version2_1/Documentation/Continent_def.gif
     """
     if 15 <= lat and lat < 61 and -170 <= lon and lon < -40:
         return 'North_America'
-    
+
     raise ValueError('Unknown location: %s, %s' % (lat, lon))
 
 def quads(minlon, minlat, maxlon, maxlat):
@@ -37,19 +37,19 @@ def quads(minlon, minlat, maxlon, maxlat):
     """
     lon = floor(minlon)
     while lon <= maxlon:
-    
+
         lat = floor(minlat)
         while lat <= maxlat:
-        
+
             yield lon, lat
-        
+
             lat += 1
-    
+
         lon += 1
 
 def datasource(lat, lon, source_dir):
     """ Return a gdal datasource for an SRTM3 lat, lon corner.
-    
+
         If it doesn't already exist locally in source_dir, grab a new one.
     """
     #
@@ -63,18 +63,18 @@ def datasource(lat, lon, source_dir):
 
     fmt = 'http://dds.cr.usgs.gov/srtm/version2_1/SRTM3/%s/N%02dW%03d.hgt.zip'
     url = fmt % (reg, abs(lat), abs(lon))
-    
+
     #
     # Create a local filepath
     #
     s, host, path, p, q, f = urlparse(url)
-    
+
     dem_dir = md5(url).hexdigest()[:3]
     dem_dir = join(source_dir, dem_dir)
-    
+
     dem_path = join(dem_dir, basename(path)[:-4])
     dem_none = dem_path[:-4]+'.404'
-    
+
     #
     # Check if the file exists locally
     #
@@ -87,25 +87,25 @@ def datasource(lat, lon, source_dir):
     if not exists(dem_dir):
         mkdir(dem_dir)
         chmod(dem_dir, 0777)
-    
+
     assert isdir(dem_dir)
-    
+
     #
     # Grab a fresh remote copy
     #
     print >> stderr, 'Retrieving', url, 'in DEM.SRTM3.datasource().'
-    
+
     conn = HTTPConnection(host, 80)
     conn.request('GET', path)
     resp = conn.getresponse()
-    
+
     if resp.status == 404:
         # we're probably outside the coverage area
         print >> open(dem_none, 'w'), url
         return None
-    
+
     assert resp.status == 200, (resp.status, resp.read())
-    
+
     try:
         #
         # Get the DEM out of the zip file
@@ -113,18 +113,18 @@ def datasource(lat, lon, source_dir):
         handle, zip_path = mkstemp(prefix='srtm3-', suffix='.zip')
         write(handle, resp.read())
         close(handle)
-        
+
         zipfile = ZipFile(zip_path, 'r')
-        
+
         #
         # Write the actual DEM
         #
         dem_file = open(dem_path, 'w')
         dem_file.write(zipfile.read(zipfile.namelist()[0]))
         dem_file.close()
-        
+
         chmod(dem_path, 0666)
-    
+
     finally:
         unlink(zip_path)
 
